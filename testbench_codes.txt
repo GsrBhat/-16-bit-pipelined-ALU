@@ -1,0 +1,98 @@
+PIPELINED ALU:
+
+module tb_pipelined_alu;
+
+    reg clk, reset;
+    reg [15:0] A, B;
+    reg [2:0] opcode;
+    wire [15:0] result;
+    wire zero, carry, overflow;
+
+    pipelined_alu uut (
+        .clk(clk), .reset(reset),
+        .A(A), .B(B), .opcode(opcode),
+        .result(result), .zero(zero),
+        .carry(carry), .overflow(overflow)
+    );
+
+    // Clock generator
+    always #5 clk = ~clk;
+
+    initial begin
+        clk = 0; reset = 1;
+        #12 reset = 0;
+
+        // Apply inputs - note: outputs come 2 cycles later
+        A=16'h0005; B=16'h0003; opcode=3'b000; #10; // ADD
+        A=16'h0008; B=16'h0002; opcode=3'b001; #10; // SUB
+        A=16'h00FF; B=16'h0F0F; opcode=3'b010; #10; // AND
+        A=16'h00FF; B=16'h0F0F; opcode=3'b011; #10; // OR
+        A=16'h00FF; B=16'h0F0F; opcode=3'b100; #10; // XOR
+        A=16'h00FF; B=16'h0000; opcode=3'b101; #10; // NOT
+        A=16'h0001; B=16'h0000; opcode=3'b110; #10; // SHL
+        A=16'h8000; B=16'h0000; opcode=3'b111; #10; // SHR
+
+        #50 $stop; // wait for pipeline to flush
+    end
+endmodule
+
+
+
+NON-PIPELINED ALU:
+
+`timescale 1ns / 1ps
+//////////////////////////////////////////////////////////////////////////////////
+// Company:
+// Engineer:
+//
+// Create Date: 13.09.2025 14:26:04
+// Design Name:
+// Module Name: tb_nonpipelined_alu
+// Project Name:
+// Target Devices:
+// Tool Versions:
+// Description:
+//
+// Dependencies:
+//
+// Revision:
+// Revision 0.01 - File Created
+// Additional Comments:
+//
+//////////////////////////////////////////////////////////////////////////////////
+
+
+module tb_nonpipelined_alu;
+
+    reg [15:0] A, B;
+    reg [2:0] opcode;
+    wire [15:0] result;
+    wire zero, carry, overflow;
+
+    nonpipelined_alu uut (
+        .A(A), .B(B), .opcode(opcode),
+        .result(result),
+        .zero(zero), .carry(carry), .overflow(overflow)
+    );
+
+    initial begin
+        // Test ADD
+        A = 16'h0005; B = 16'h0003; opcode = 3'b000; #10;
+        // Test SUB
+        A = 16'h0008; B = 16'h0002; opcode = 3'b001; #10;
+        // Test AND
+        A = 16'h00FF; B = 16'h0F0F; opcode = 3'b010; #10;
+        // Test OR
+        A = 16'h00FF; B = 16'h0F0F; opcode = 3'b011; #10;
+        // Test XOR
+        A = 16'h00FF; B = 16'h0F0F; opcode = 3'b100; #10;
+        // Test NOT
+        A = 16'h00FF; opcode = 3'b101; #10;
+        // Test SHL
+        A = 16'h0001; opcode = 3'b110; #10;
+        // Test SHR
+        A = 16'h8000; opcode = 3'b111; #10;
+
+        $stop;
+    end
+endmodule

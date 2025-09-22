@@ -1,0 +1,121 @@
+PIPELINED ALU:
+
+module pipelined_alu (
+    input  wire        clk,
+    input  wire        reset,
+    input  wire [15:0] A,
+    input  wire [15:0] B,
+    input  wire [2:0]  opcode,
+    output reg  [15:0] result,
+    output reg         zero,
+    output reg         carry,
+    output reg         overflow
+);
+
+    // ---------------- Stage 1: Execution ----------------
+    reg [15:0] alu_stage1;
+    reg        carry_stage1, overflow_stage1;
+
+    always @(*) begin
+        alu_stage1      = 16'b0;
+        carry_stage1    = 1'b0;
+        overflow_stage1 = 1'b0;
+
+        case(opcode)
+            3'b000: begin // ADD
+                {carry_stage1, alu_stage1} = {1'b0, A} + {1'b0, B};
+                overflow_stage1 = (A[15] & B[15] & ~alu_stage1[15]) |
+                                  (~A[15] & ~B[15] & alu_stage1[15]);
+            end
+            3'b001: begin // SUB
+                {carry_stage1, alu_stage1} = {1'b0, A} - {1'b0, B};
+                overflow_stage1 = (A[15] & ~B[15] & ~alu_stage1[15]) |
+                                  (~A[15] & B[15] & alu_stage1[15]);
+            end
+            3'b010: alu_stage1 = A & B;   // AND
+            3'b011: alu_stage1 = A | B;   // OR
+            3'b100: alu_stage1 = A ^ B;   // XOR
+            3'b101: alu_stage1 = ~A;      // NOT
+            3'b110: alu_stage1 = A << 1;  // SHL
+            3'b111: alu_stage1 = A >> 1;  // SHR
+        endcase
+    end
+
+    // ---------------- Pipeline Register ----------------
+    reg [15:0] alu_stage2;
+    reg        carry_stage2, overflow_stage2;
+
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            alu_stage2     <= 16'b0;
+            carry_stage2   <= 1'b0;
+            overflow_stage2<= 1'b0;
+        end else begin
+            alu_stage2     <= alu_stage1;
+            carry_stage2   <= carry_stage1;
+            overflow_stage2<= overflow_stage1;
+        end
+    end
+
+    // ---------------- Stage 2: Write Back ----------------
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            result   <= 16'b0;
+            zero     <= 1'b0;
+            carry    <= 1'b0;
+            overflow <= 1'b0;
+        end else begin
+            result   <= alu_stage2;
+            zero     <= (alu_stage2 == 16'b0);
+            carry    <= carry_stage2;
+            overflow <= overflow_stage2;
+        end
+    end
+
+endmodule
+
+
+
+
+NON-PIPELINED ALU:
+
+module nonpipelined_alu (
+    input  wire [15:0] A,
+    input  wire [15:0] B,
+    input  wire [2:0]  opcode,   // 3-bit opcode = 8 operations
+    output reg  [15:0] result,
+    output reg         zero,
+    output reg         carry,
+    output reg         overflow
+);
+
+    always @(*) begin
+        result   = 16'b0;
+        carry    = 1'b0;
+        overflow = 1'b0;
+
+        case(opcode)
+            3'b000: {carry, result} = A + B;    // ADD
+            3'b001: {carry, result} = A - B;    // SUB
+            3'b010: result = A & B;             // AND
+            3'b011: result = A | B;             // OR
+            3'b100: result = A ^ B;             // XOR
+            3'b101: result = ~A;                // NOT
+            3'b110: result = A << 1;            // SHL
+            3'b111: result = A >> 1;            // SHR
+            default: result = 16'b0;
+        endcase
+
+        // Overflow detection
+        if (opcode == 3'b000) // ADD
+            overflow = (A[15] & B[15] & ~result[15]) |
+                       (~A[15] & ~B[15] & result[15]);
+        else if (opcode == 3'b001) // SUB
+            overflow = (A[15] & ~B[15] & ~result[15]) |
+                       (~A[15] & B[15] & result[15]);
+
+        // Zero flag
+        zero = (result == 16'b0);
+    end
+
+endmodule
